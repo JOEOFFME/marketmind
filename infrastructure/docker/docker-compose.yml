@@ -1,0 +1,63 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: marketmind_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-marketmind}
+      POSTGRES_USER: ${POSTGRES_USER:-marketmind}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketmind_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-marketmind}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: marketmind_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 3
+
+  adminer:
+    image: adminer:4
+    container_name: marketmind_adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.19.0
+    container_name: marketmind_mlflow
+    ports:
+      - "5000:5000"
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-marketmind}:${POSTGRES_PASSWORD:-marketmind_dev}@db:5432/${POSTGRES_DB:-marketmind}
+      MLFLOW_ARTIFACT_ROOT: /mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --backend-store-uri postgresql://${POSTGRES_USER:-marketmind}:${POSTGRES_PASSWORD:-marketmind_dev}@db:5432/${POSTGRES_DB:-marketmind}
+      --default-artifact-root /mlflow/artifacts
+      --host 0.0.0.0
+      --port 5000
+
+volumes:
+  postgres_data:
+  mlflow_artifacts:

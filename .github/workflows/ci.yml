@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:15-3.4
+        env:
+          POSTGRES_DB: marketmind_test
+          POSTGRES_USER: marketmind
+          POSTGRES_PASSWORD: marketmind_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Poetry
+        run: pip install poetry
+
+      - name: Install dependencies
+        run: poetry install
+
+      - name: Lint
+        run: |
+          poetry run black --check src/ tests/
+          poetry run isort --check-only src/ tests/
+          poetry run flake8 src/ tests/ --max-line-length=88 --extend-ignore=E203,W503
+
+      - name: Test
+        env:
+          DATABASE_URL: postgresql://marketmind:marketmind_test@localhost:5432/marketmind_test
+        run: poetry run pytest tests/ -v --cov=src --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml

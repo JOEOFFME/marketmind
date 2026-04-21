@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+dist/
+build/
+
+# Env
+.env
+*.env
+
+# Data (track with DVC, not git)
+data/raw/
+data/processed/
+data/external/
+*.csv
+*.parquet
+*.geojson
+
+# ML artifacts
+mlruns/
+*.pkl
+*.joblib
+*.pt
+*.onnx
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Terraform
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.backup
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
