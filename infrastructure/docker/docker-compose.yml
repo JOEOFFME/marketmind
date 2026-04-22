@@ -1,20 +1,39 @@
 version: "3.9"
 
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.10.4
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://marketmind:marketmind_dev@db:5432/marketmind
+    AIRFLOW__CORE__FERNET_KEY: 'ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg='
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    PYTHONPATH: /opt/airflow/project
+  volumes:
+    - ./../../airflow/dags:/opt/airflow/dags
+    - ./../../src:/opt/airflow/project/src
+    - ./../../data:/opt/airflow/project/data
+    - airflow_logs:/opt/airflow/logs
+  depends_on:
+    db:
+      condition: service_healthy
+
 services:
   db:
     image: postgis/postgis:15-3.4
     container_name: marketmind_db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-marketmind}
-      POSTGRES_USER: ${POSTGRES_USER:-marketmind}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marketmind_dev}
+      POSTGRES_DB: marketmind
+      POSTGRES_USER: marketmind
+      POSTGRES_PASSWORD: marketmind_dev
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-marketmind}"]
+      test: ["CMD-SHELL", "pg_isready -U marketmind"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -44,7 +63,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRES_USER:-marketmind}:${POSTGRES_PASSWORD:-marketmind_dev}@db:5432/${POSTGRES_DB:-marketmind}
+      MLFLOW_BACKEND_STORE_URI: postgresql://marketmind:marketmind_dev@db:5432/marketmind
       MLFLOW_ARTIFACT_ROOT: /mlflow/artifacts
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
@@ -53,11 +72,48 @@ services:
         condition: service_healthy
     command: >
       mlflow server
-      --backend-store-uri postgresql://${POSTGRES_USER:-marketmind}:${POSTGRES_PASSWORD:-marketmind_dev}@db:5432/${POSTGRES_DB:-marketmind}
+      --backend-store-uri postgresql://marketmind:marketmind_dev@db:5432/marketmind
       --default-artifact-root /mlflow/artifacts
       --host 0.0.0.0
       --port 5000
 
+  airflow-init:
+    <<: *airflow-common
+    container_name: marketmind_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Rime \
+          --lastname AABIL \
+          --role Admin \
+          --email rimeaabil@gmail.com
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: marketmind_airflow_webserver
+    ports:
+      - "8081:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: marketmind_airflow_scheduler
+    command: scheduler
+    restart: always
+
 volumes:
   postgres_data:
   mlflow_artifacts:
+  airflow_logs:
