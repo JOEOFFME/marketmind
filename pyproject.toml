@@ -2,8 +2,8 @@
 name = "marketmind"
 version = "0.1.0"
 description = "Intelligent marketplace analytics platform — Rabat, Morocco"
-authors = ["AABIL Rime <rimeaabil@gmail.com>"]
-python = "^3.11"
+authors = ["JOEOFFME <youssefdihako@gmail.com>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -38,6 +38,7 @@ xgboost = "^2.1.3"
 rich = "^13.9.4"
 typer = "^0.15.1"
 loguru = "^0.7.3"
+osmium = "^4.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.4"

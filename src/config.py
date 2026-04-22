@@ -24,8 +24,7 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO")
 
     # Rabat bounding box (south, west, north, east)
-    rabat_bbox: tuple[float, float, float, float] = (33.90, -6.95, 34.05, -6.75)
-
+    rabat_bbox: tuple[float, float, float, float] = (33.97, -6.87, 34.03, -6.80)
     model_config = {"env_file": ".env", "extra": "ignore"}
 
 
