@@ -30,6 +30,9 @@ collect-osm:
 collect-weather:
 	poetry run python src/collection/collect_weather.py
 
+collect-places:
+	poetry run python src/collection/collect_places.py
+
 test:
 	poetry run pytest tests/ -v --cov=src --cov-report=term-missing
 

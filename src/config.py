@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     openai_api_key: str = Field(default="")
     anthropic_api_key: str = Field(default="")
     ollama_base_url: str = Field(default="http://localhost:11434")
-
+    google_places_api_key: str = Field(default="")
     # App
     env: str = Field(default="development")
     log_level: str = Field(default="INFO")
