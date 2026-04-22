@@ -33,6 +33,9 @@ collect-weather:
 collect-places:
 	poetry run python src/collection/collect_places.py
 
+features:
+	poetry run python src/features/feature_pipeline.py
+
 test:
 	poetry run pytest tests/ -v --cov=src --cov-report=term-missing
 
