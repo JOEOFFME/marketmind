@@ -19,8 +19,8 @@ from src.config import settings
 
 # Rabat coordinates
 LAT, LON = 34.020, -6.841
-START_DATE = "2023-01-01"
-END_DATE   = "2024-12-31"
+START_DATE = "2019-01-01"
+END_DATE   = "2025-01-31"
 
 OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
 

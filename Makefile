@@ -36,6 +36,9 @@ collect-places:
 features:
 	poetry run python src/features/feature_pipeline.py
 
+train:
+	poetry run python src/models/train.py
+
 test:
 	poetry run pytest tests/ -v --cov=src --cov-report=term-missing
 
