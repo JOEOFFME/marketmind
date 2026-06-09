@@ -107,6 +107,7 @@ def train_ridge(X_train, X_test, y_train, y_test, X, y) -> tuple:
         mlflow.log_params({"alpha": 1.0, "model_type": "ridge"})
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "ridge")
+        mlflow.sklearn.log_model(model, name="model")
         logger.info(f"  Ridge     → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
     return "ridge", model, metrics
 
@@ -127,6 +128,7 @@ def train_random_forest(X_train, X_test, y_train, y_test, X, y) -> tuple:
         mlflow.log_params({**params, "model_type": "random_forest"})
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "rf")
+        mlflow.sklearn.log_model(model, name="model")
         logger.info(f"  RF        → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
     return "random_forest", model, metrics
 
@@ -160,6 +162,7 @@ def train_xgboost(X_train, X_test, y_train, y_test, X, y) -> tuple:
         mlflow.log_params({**best_params, "model_type": "xgboost_tuned"})
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "xgboost")
+        mlflow.sklearn.log_model(model, name="model")
         logger.info(f"  XGBoost   → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
     return "xgboost", model, metrics
 
@@ -199,6 +202,7 @@ def train_lightgbm(X_train, X_test, y_train, y_test, X, y) -> tuple:
             mlflow.log_params({**best_params, "model_type": "lightgbm_tuned"})
             mlflow.log_metrics(metrics)
             mlflow.set_tag("model_saved", "lightgbm")
+            mlflow.sklearn.log_model(model, name="model")
             logger.info(
                 f"  LightGBM  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}"
             )
@@ -266,6 +270,7 @@ def train_stacking(
         )
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "stacking")
+        mlflow.sklearn.log_model(stacking, name="model")
         logger.info(f"  Stacking  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
     return "stacking", stacking, metrics
 
