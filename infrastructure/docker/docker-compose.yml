@@ -71,6 +71,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
   airflow-init:
     <<: *airflow-common
     container_name: marketmind_airflow_init
@@ -106,6 +107,53 @@ services:
     container_name: marketmind_airflow_scheduler
     command: scheduler
     restart: always
+
+  # ── NEW: FastAPI service ─────────────────────────────────────────────────────
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    image: marketmind-api:latest
+    container_name: marketmind_api
+    command: ["uvicorn", "src.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://marketmind:marketmind_dev@db:5432/marketmind
+      REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── NEW: ML worker service ───────────────────────────────────────────────────
+  worker:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile.worker
+    image: marketmind-worker:latest
+    container_name: marketmind_worker
+    command: ["python", "-m", "src.workers.ml_worker"]
+    environment:
+      DATABASE_URL: postgresql://marketmind:marketmind_dev@db:5432/marketmind
+      REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_BEST_RUN_ID: 3cc6339815ab438dba72f63059b52065
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   postgres_data:
