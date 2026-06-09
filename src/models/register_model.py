@@ -1,4 +1,5 @@
 """Register the best logged model (MLflow 3.x) and promote it to champion."""
+
 import os
 
 import mlflow
@@ -11,7 +12,7 @@ CHAMPION_ALIAS = "champion"
 
 def r2_of(client, lm):
     """R2 from the logged model's metrics, falling back to its source run."""
-    for m in (lm.metrics or []):
+    for m in lm.metrics or []:
         if m.key == "r2":
             return m.value
     if lm.source_run_id:
@@ -25,7 +26,9 @@ def r2_of(client, lm):
 
 
 def main():
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_tracking_uri(
+        os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    )
     client = MlflowClient()
 
     exp_ids = [e.experiment_id for e in client.search_experiments()]

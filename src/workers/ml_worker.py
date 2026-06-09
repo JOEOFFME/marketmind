@@ -1,4 +1,5 @@
 """MarketMind ML Worker — consumes prediction jobs from Redis."""
+
 import json
 import os
 import time
@@ -16,7 +17,9 @@ MODEL_URI = os.environ.get("MODEL_URI", "models:/marketmind-success-model@champi
 def load_model():
     import mlflow
 
-    mlflow.set_tracking_uri(os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000"))
+    mlflow.set_tracking_uri(
+        os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+    )
     logger.info(f"Loading model from {MODEL_URI}...")
     model = mlflow.pyfunc.load_model(MODEL_URI)
     logger.info("Model loaded.")
