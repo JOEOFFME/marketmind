@@ -1,6 +1,7 @@
 """
 MarketMind API — FastAPI skeleton (Phase 5 will wire in AI agents)
 """
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

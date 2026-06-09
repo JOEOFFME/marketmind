@@ -6,16 +6,18 @@ Much faster and more reliable than live Overpass API queries.
 Usage:
     make collect-osm
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import geopandas as gpd
 import osmium
 import pandas as pd
-import geopandas as gpd
+from loguru import logger
 from shapely.geometry import Point
 from sqlalchemy import create_engine, text
-from loguru import logger
 
 from src.config import settings
 
@@ -26,8 +28,15 @@ SOUTH, WEST, NORTH, EAST = settings.rabat_bbox
 
 # OSM tags we care about
 RELEVANT_AMENITIES = {
-    "restaurant", "cafe", "fast_food", "bar",
-    "marketplace", "market", "bank", "pharmacy", "shop"
+    "restaurant",
+    "cafe",
+    "fast_food",
+    "bar",
+    "marketplace",
+    "market",
+    "bank",
+    "pharmacy",
+    "shop",
 }
 
 
@@ -40,27 +49,34 @@ class RabatPOIHandler(osmium.SimpleHandler):
         return SOUTH <= lat <= NORTH and WEST <= lon <= EAST
 
     def _extract(self, tags, lat, lon):
-        amenity  = tags.get("amenity", "")
-        shop     = tags.get("shop", "")
-        landuse  = tags.get("landuse", "")
+        amenity = tags.get("amenity", "")
+        shop = tags.get("shop", "")
+        landuse = tags.get("landuse", "")
         building = tags.get("building", "")
 
-        if not any([amenity, shop,
-                    landuse in ("retail", "commercial"),
-                    building in ("retail", "commercial", "supermarket")]):
+        if not any(
+            [
+                amenity,
+                shop,
+                landuse in ("retail", "commercial"),
+                building in ("retail", "commercial", "supermarket"),
+            ]
+        ):
             return
 
-        self.pois.append({
-            "name":           tags.get("name", ""),
-            "amenity":        amenity,
-            "shop":           shop,
-            "landuse":        landuse,
-            "building":       building,
-            "opening_hours":  tags.get("opening_hours", ""),
-            "addr_street":    tags.get("addr:street", ""),
-            "latitude":       lat,
-            "longitude":      lon,
-        })
+        self.pois.append(
+            {
+                "name": tags.get("name", ""),
+                "amenity": amenity,
+                "shop": shop,
+                "landuse": landuse,
+                "building": building,
+                "opening_hours": tags.get("opening_hours", ""),
+                "addr_street": tags.get("addr:street", ""),
+                "latitude": lat,
+                "longitude": lon,
+            }
+        )
 
     def node(self, n):
         if n.location.valid() and self._in_rabat(n.location.lat, n.location.lon):
@@ -91,7 +107,7 @@ def fetch_pois() -> gpd.GeoDataFrame:
         geometry=[Point(row.longitude, row.latitude) for row in df.itertuples()],
         crs="EPSG:4326",
     )
-    gdf["source"]       = "osm_pbf"
+    gdf["source"] = "osm_pbf"
     gdf["collected_at"] = pd.Timestamp.now(tz="UTC")
     return gdf
 
@@ -114,12 +130,15 @@ def save_to_postgis(gdf: gpd.GeoDataFrame) -> None:
 def main():
     if not PBF_PATH.exists():
         logger.error(f"PBF file not found at {PBF_PATH}")
-        logger.error("Run: wget https://download.geofabrik.de/africa/morocco-latest.osm.pbf -P data/external/")
+        logger.error(
+            "Run: wget https://download.geofabrik.de/africa/morocco-latest.osm.pbf -P data/external/"  # noqa: E501
+        )
         sys.exit(1)
 
     logger.info("=== OSM collection starting ===")
     gdf = fetch_pois()
-    logger.info(f"\n{gdf[['name','amenity','shop']].head(10).to_string()}")
+    cols = ["name", "amenity", "shop"]
+    logger.info(f"\n{gdf[cols].head(10).to_string()}")
     save_to_postgis(gdf)
     logger.info("=== OSM collection complete ===")
 

@@ -13,45 +13,52 @@ Models compared:
 Usage:
     make train
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import numpy as np
-import pandas as pd
 import mlflow
 import mlflow.sklearn
 import mlflow.xgboost
+import numpy as np
+import optuna
+import pandas as pd
 from loguru import logger
-
 from sklearn.ensemble import (
-    RandomForestRegressor,
     GradientBoostingRegressor,
+    RandomForestRegressor,
     StackingRegressor,
 )
 from sklearn.linear_model import Ridge
-from sklearn.model_selection import train_test_split, cross_val_score
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.model_selection import cross_val_score, train_test_split
 from sklearn.pipeline import Pipeline
-
+from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
-import optuna
+
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 from src.config import settings
 
 # ── Config ──────────────────────────────────────────────────────────────────
 FEATURES_PATH = Path("data/processed/features.parquet")
-TARGET_COL    = "success_score"
-RANDOM_STATE  = 42
-TEST_SIZE     = 0.2
-N_FOLDS       = 5
+TARGET_COL = "success_score"
+RANDOM_STATE = 42
+TEST_SIZE = 0.2
+N_FOLDS = 5
 
 DROP_COLS = [
-    "place_id", "name", "rating", "review_count",
-    "price_level", "log_reviews", "rating_norm",
-    "reviews_norm", "log_review_count",
+    "place_id",
+    "name",
+    "rating",
+    "review_count",
+    "price_level",
+    "log_reviews",
+    "rating_norm",
+    "reviews_norm",
+    "log_review_count",
 ]
 
 
@@ -77,11 +84,11 @@ def compute_metrics(model, X_test, y_test, X, y) -> dict:
     y_pred = model.predict(X_test)
     cv = cross_val_score(model, X, y, cv=N_FOLDS, scoring="r2")
     return {
-        "rmse":       float(np.sqrt(mean_squared_error(y_test, y_pred))),
-        "mae":        float(mean_absolute_error(y_test, y_pred)),
-        "r2":         float(r2_score(y_test, y_pred)),
+        "rmse": float(np.sqrt(mean_squared_error(y_test, y_pred))),
+        "mae": float(mean_absolute_error(y_test, y_pred)),
+        "r2": float(r2_score(y_test, y_pred)),
         "cv_r2_mean": float(cv.mean()),
-        "cv_r2_std":  float(cv.std()),
+        "cv_r2_std": float(cv.std()),
     }
 
 
@@ -89,10 +96,12 @@ def compute_metrics(model, X_test, y_test, X, y) -> dict:
 def train_ridge(X_train, X_test, y_train, y_test, X, y) -> tuple:
     logger.info("Training Ridge (baseline)...")
     with mlflow.start_run(run_name="ridge_baseline"):
-        model = Pipeline([
-            ("scaler", StandardScaler()),
-            ("model",  Ridge(alpha=1.0)),
-        ])
+        model = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("model", Ridge(alpha=1.0)),
+            ]
+        )
         model.fit(X_train, y_train)
         metrics = compute_metrics(model, X_test, y_test, X, y)
         mlflow.log_params({"alpha": 1.0, "model_type": "ridge"})
@@ -106,11 +115,11 @@ def train_random_forest(X_train, X_test, y_train, y_test, X, y) -> tuple:
     logger.info("Training Random Forest...")
     with mlflow.start_run(run_name="random_forest"):
         params = {
-            "n_estimators":      200,
-            "max_depth":         8,
+            "n_estimators": 200,
+            "max_depth": 8,
             "min_samples_split": 5,
-            "random_state":      RANDOM_STATE,
-            "n_jobs":            -1,
+            "random_state": RANDOM_STATE,
+            "n_jobs": -1,
         }
         model = RandomForestRegressor(**params)
         model.fit(X_train, y_train)
@@ -127,14 +136,14 @@ def train_xgboost(X_train, X_test, y_train, y_test, X, y) -> tuple:
 
     def objective(trial):
         params = {
-            "n_estimators":     trial.suggest_int("n_estimators", 100, 500),
-            "max_depth":        trial.suggest_int("max_depth", 3, 8),
-            "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-            "subsample":        trial.suggest_float("subsample", 0.6, 1.0),
+            "n_estimators": trial.suggest_int("n_estimators", 100, 500),
+            "max_depth": trial.suggest_int("max_depth", 3, 8),
+            "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+            "subsample": trial.suggest_float("subsample", 0.6, 1.0),
             "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-            "reg_alpha":        trial.suggest_float("reg_alpha", 0, 1.0),
-            "reg_lambda":       trial.suggest_float("reg_lambda", 0, 1.0),
-            "random_state":     RANDOM_STATE,
+            "reg_alpha": trial.suggest_float("reg_alpha", 0, 1.0),
+            "reg_lambda": trial.suggest_float("reg_lambda", 0, 1.0),
+            "random_state": RANDOM_STATE,
         }
         m = XGBRegressor(**params, verbosity=0)
         cv = cross_val_score(m, X_train, y_train, cv=3, scoring="r2")
@@ -163,15 +172,17 @@ def train_lightgbm(X_train, X_test, y_train, y_test, X, y) -> tuple:
 
         def objective(trial):
             params = {
-                "n_estimators":     trial.suggest_int("n_estimators", 100, 500),
-                "max_depth":        trial.suggest_int("max_depth", 3, 8),
-                "learning_rate":    trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
-                "subsample":        trial.suggest_float("subsample", 0.6, 1.0),
+                "n_estimators": trial.suggest_int("n_estimators", 100, 500),
+                "max_depth": trial.suggest_int("max_depth", 3, 8),
+                "learning_rate": trial.suggest_float(
+                    "learning_rate", 0.01, 0.3, log=True
+                ),
+                "subsample": trial.suggest_float("subsample", 0.6, 1.0),
                 "colsample_bytree": trial.suggest_float("colsample_bytree", 0.6, 1.0),
-                "reg_alpha":        trial.suggest_float("reg_alpha", 0, 1.0),
-                "reg_lambda":       trial.suggest_float("reg_lambda", 0, 1.0),
-                "random_state":     RANDOM_STATE,
-                "verbose":          -1,
+                "reg_alpha": trial.suggest_float("reg_alpha", 0, 1.0),
+                "reg_lambda": trial.suggest_float("reg_lambda", 0, 1.0),
+                "random_state": RANDOM_STATE,
+                "verbose": -1,
             }
             m = lgb.LGBMRegressor(**params)
             cv = cross_val_score(m, X_train, y_train, cv=3, scoring="r2")
@@ -188,7 +199,9 @@ def train_lightgbm(X_train, X_test, y_train, y_test, X, y) -> tuple:
             mlflow.log_params({**best_params, "model_type": "lightgbm_tuned"})
             mlflow.log_metrics(metrics)
             mlflow.set_tag("model_saved", "lightgbm")
-            logger.info(f"  LightGBM  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
+            logger.info(
+                f"  LightGBM  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}"
+            )
         return "lightgbm", model, metrics
 
     except ImportError:
@@ -197,22 +210,40 @@ def train_lightgbm(X_train, X_test, y_train, y_test, X, y) -> tuple:
 
 
 # ── Stacking Ensemble ─────────────────────────────────────────────────────────
-def train_stacking(xgb_model, rf_model, X_train, X_test, y_train, y_test, X, y) -> tuple:
+def train_stacking(
+    xgb_model, rf_model, X_train, X_test, y_train, y_test, X, y
+) -> tuple:
     logger.info("Training Stacking Ensemble...")
 
     estimators = [
-        ("xgb", XGBRegressor(
-            n_estimators=200, max_depth=5,
-            learning_rate=0.05, random_state=RANDOM_STATE, verbosity=0,
-        )),
-        ("rf", RandomForestRegressor(
-            n_estimators=200, max_depth=8,
-            random_state=RANDOM_STATE, n_jobs=-1,
-        )),
-        ("gbm", GradientBoostingRegressor(
-            n_estimators=200, max_depth=4,
-            learning_rate=0.05, random_state=RANDOM_STATE,
-        )),
+        (
+            "xgb",
+            XGBRegressor(
+                n_estimators=200,
+                max_depth=5,
+                learning_rate=0.05,
+                random_state=RANDOM_STATE,
+                verbosity=0,
+            ),
+        ),
+        (
+            "rf",
+            RandomForestRegressor(
+                n_estimators=200,
+                max_depth=8,
+                random_state=RANDOM_STATE,
+                n_jobs=-1,
+            ),
+        ),
+        (
+            "gbm",
+            GradientBoostingRegressor(
+                n_estimators=200,
+                max_depth=4,
+                learning_rate=0.05,
+                random_state=RANDOM_STATE,
+            ),
+        ),
     ]
 
     stacking = StackingRegressor(
@@ -225,12 +256,14 @@ def train_stacking(xgb_model, rf_model, X_train, X_test, y_train, y_test, X, y) 
     with mlflow.start_run(run_name="stacking_ensemble"):
         stacking.fit(X_train, y_train)
         metrics = compute_metrics(stacking, X_test, y_test, X, y)
-        mlflow.log_params({
-            "model_type":    "stacking",
-            "base_learners": "xgboost+random_forest+gbm",
-            "meta_learner":  "ridge",
-            "cv_folds":      5,
-        })
+        mlflow.log_params(
+            {
+                "model_type": "stacking",
+                "base_learners": "xgboost+random_forest+gbm",
+                "meta_learner": "ridge",
+                "cv_folds": 5,
+            }
+        )
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "stacking")
         logger.info(f"  Stacking  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
@@ -242,12 +275,15 @@ def compute_shap(model, X_test: pd.DataFrame, model_name: str):
     logger.info(f"Computing SHAP values for {model_name}...")
     try:
         import shap
+
         explainer = shap.TreeExplainer(model)
         shap_values = explainer.shap_values(X_test)
-        mean_shap = pd.DataFrame({
-            "feature":    X_test.columns,
-            "importance": np.abs(shap_values).mean(axis=0),
-        }).sort_values("importance", ascending=False)
+        mean_shap = pd.DataFrame(
+            {
+                "feature": X_test.columns,
+                "importance": np.abs(shap_values).mean(axis=0),
+            }
+        ).sort_values("importance", ascending=False)
 
         logger.info(f"\nTop 10 most important features ({model_name}):")
         logger.info(f"\n{mean_shap.head(10).to_string(index=False)}")
@@ -277,7 +313,9 @@ def main():
     name, ridge_model, metrics = train_ridge(X_train, X_test, y_train, y_test, X, y)
     results.append((name, ridge_model, metrics))
 
-    name, rf_model, metrics = train_random_forest(X_train, X_test, y_train, y_test, X, y)
+    name, rf_model, metrics = train_random_forest(
+        X_train, X_test, y_train, y_test, X, y
+    )
     results.append((name, rf_model, metrics))
 
     name, xgb_model, metrics = train_xgboost(X_train, X_test, y_train, y_test, X, y)

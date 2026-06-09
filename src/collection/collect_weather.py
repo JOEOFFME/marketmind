@@ -6,8 +6,10 @@ Usage:
     poetry run python src/collection/collect_weather.py
     make collect-weather
 """
+
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import httpx
@@ -20,7 +22,7 @@ from src.config import settings
 # Rabat coordinates
 LAT, LON = 34.020, -6.841
 START_DATE = "2019-01-01"
-END_DATE   = "2025-01-31"
+END_DATE = "2025-01-31"
 
 OPEN_METEO_URL = "https://archive-api.open-meteo.com/v1/archive"
 
@@ -44,14 +46,16 @@ def fetch_weather() -> pd.DataFrame:
     resp.raise_for_status()
 
     data = resp.json()["daily"]
-    df = pd.DataFrame({
-        "date":          pd.to_datetime(data["time"]),
-        "temp_max":      data["temperature_2m_max"],
-        "temp_min":      data["temperature_2m_min"],
-        "precipitation": data["precipitation_sum"],
-        "wind_speed":    data["wind_speed_10m_max"],
-        "collected_at":  pd.Timestamp.now(tz="UTC"),
-    })
+    df = pd.DataFrame(
+        {
+            "date": pd.to_datetime(data["time"]),
+            "temp_max": data["temperature_2m_max"],
+            "temp_min": data["temperature_2m_min"],
+            "precipitation": data["precipitation_sum"],
+            "wind_speed": data["wind_speed_10m_max"],
+            "collected_at": pd.Timestamp.now(tz="UTC"),
+        }
+    )
     logger.success(f"Fetched {len(df)} daily records")
     return df
 
