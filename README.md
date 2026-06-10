@@ -1,4 +1,3 @@
-cat > README.md << 'MARKDOWN'
 # MarketMind
 
 **Intelligent business-location analytics for Rabat, Morocco**
