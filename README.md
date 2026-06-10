@@ -232,5 +232,3 @@ GOOGLE_PLACES_API_KEY=
 ---
 
 *A full-stack ML + AI engineering project — data engineering, MLOps, multi-agent AI, and web serving end to end.*
-MARKDOWN
-echo "README.md créé"
