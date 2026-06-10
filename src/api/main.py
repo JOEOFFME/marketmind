@@ -1,7 +1,8 @@
-"""MarketMind API — FastAPI app exposing the LangGraph agent pipeline."""
+"""MarketMind API — FastAPI app exposing the LangGraph agent pipeline + maps."""
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 
@@ -10,7 +11,7 @@ load_dotenv()
 app = FastAPI(
     title="MarketMind API",
     description="Intelligent business-location analytics for Rabat, Morocco",
-    version="0.2.0",
+    version="0.3.0",
 )
 
 app.add_middleware(
@@ -20,10 +21,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Expose Prometheus metrics at /metrics
 Instrumentator().instrument(app).expose(app)
 
-# Build the agent graph lazily (keeps /health working even if agents fail to load)
 _graph = None
 
 
@@ -42,12 +41,11 @@ class AskRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "version": "0.2.0"}
+    return {"status": "ok", "version": "0.3.0"}
 
 
 @app.post("/ask")
 def ask(req: AskRequest):
-    """Run the full agent pipeline on a natural-language question."""
     if not req.question.strip():
         raise HTTPException(status_code=400, detail="question is required")
     try:
@@ -61,3 +59,10 @@ def ask(req: AskRequest):
         "retrieved": result.get("retrieved"),
         "analysis": result.get("analysis"),
     }
+
+
+@app.get("/map", response_class=HTMLResponse)
+def map_view(district: str | None = None, type: str | None = None):
+    from src.serving.maps import build_map
+
+    return build_map(district, type).get_root().render()

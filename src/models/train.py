@@ -162,7 +162,7 @@ def train_xgboost(X_train, X_test, y_train, y_test, X, y) -> tuple:
         mlflow.log_params({**best_params, "model_type": "xgboost_tuned"})
         mlflow.log_metrics(metrics)
         mlflow.set_tag("model_saved", "xgboost")
-        mlflow.sklearn.log_model(model, name="model")
+        mlflow.xgboost.log_model(model, name="model")
         logger.info(f"  XGBoost   → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}")
     return "xgboost", model, metrics
 
@@ -202,7 +202,7 @@ def train_lightgbm(X_train, X_test, y_train, y_test, X, y) -> tuple:
             mlflow.log_params({**best_params, "model_type": "lightgbm_tuned"})
             mlflow.log_metrics(metrics)
             mlflow.set_tag("model_saved", "lightgbm")
-            mlflow.sklearn.log_model(model, name="model")
+            mlflow.lightgbm.log_model(model, name="model")
             logger.info(
                 f"  LightGBM  → R²={metrics['r2']:.3f}  RMSE={metrics['rmse']:.2f}"
             )
