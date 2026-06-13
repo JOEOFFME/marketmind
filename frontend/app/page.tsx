@@ -22,6 +22,89 @@ const EXAMPLES = [
   'واش نحل صيدلية فأكدال؟',
 ];
 
+function formatAnswer(text: string) {
+  const lines = text.split('\n').filter((l) => l.trim());
+  const sections: { title: string; lines: string[] }[] = [];
+  let current: { title: string; lines: string[] } | null = null;
+
+  for (const line of lines) {
+    const titleMatch = line.match(/^\*\*(.+?)\*\*\s*$/);
+    if (titleMatch) {
+      if (current) sections.push(current);
+      current = { title: titleMatch[1], lines: [] };
+    } else {
+      if (!current) current = { title: '', lines: [] };
+      current.lines.push(line);
+    }
+  }
+  if (current) sections.push(current);
+
+  const isOpen =
+    text.includes('**OPEN**') ||
+    text.toUpperCase().includes('OPEN') && sections.some((s) => s.title.includes('Recommandation'));
+
+  return (
+    <div className="space-y-5">
+      {sections.map((section, i) => {
+        const isLast = i === sections.length - 1;
+        const isRecommendation =
+          section.title.toLowerCase().includes('recommandation');
+
+        if (isRecommendation) {
+          return (
+            <div
+              key={i}
+              className="rounded-xl border border-green-200 bg-green-50 px-5 py-4"
+            >
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-green-700">
+                {section.title}
+              </p>
+              {section.lines.map((line, j) => (
+                <p
+                  key={j}
+                  className="text-sm leading-relaxed text-green-800"
+                  dangerouslySetInnerHTML={{
+                    __html: line.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'),
+                  }}
+                />
+              ))}
+            </div>
+          );
+        }
+
+        return (
+          <div key={i}>
+            {section.title && (
+              <h3 className="mb-3 border-b border-slate-100 pb-2 text-base font-semibold text-slate-800">
+                {section.title}
+              </h3>
+            )}
+            <div className="space-y-2">
+              {section.lines.map((line, j) => {
+                const hasBold = /\*\*/.test(line);
+                return (
+                  <p
+                    key={j}
+                    className={`text-sm leading-relaxed text-slate-600 ${
+                      hasBold ? 'border-l-2 border-slate-200 pl-3' : ''
+                    }`}
+                    dangerouslySetInnerHTML={{
+                      __html: line.replace(
+                        /\*\*(.+?)\*\*/g,
+                        '<strong class="text-slate-800">$1</strong>'
+                      ),
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function Home() {
   const [question, setQuestion] = useState(EXAMPLES[0]);
   const [loading, setLoading] = useState(false);
@@ -103,23 +186,26 @@ export default function Home() {
         {result && (
           <div className="mt-8 space-y-6">
             <section className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
                 Recommandation
               </h2>
-              <p className="whitespace-pre-line leading-relaxed">{result.answer}</p>
+              {formatAnswer(result.answer)}
             </section>
 
             {r && (
               <div className="grid grid-cols-3 gap-4">
                 <Stat label="Établissements" value={r.n_places ?? '—'} />
                 <Stat label="Score moyen" value={r.avg_success_score ?? '—'} />
-                <Stat label="Moy. quartier" value={r.district_avg_score_all_types ?? '—'} />
+                <Stat
+                  label="Moy. quartier"
+                  value={r.district_avg_score_all_types ?? '—'}
+                />
               </div>
             )}
 
             {r?.top_places && r.top_places.length > 0 && (
               <section className="rounded-2xl bg-white p-6 shadow-sm">
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                <h2 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Meilleurs établissements
                 </h2>
                 <ul>
@@ -128,8 +214,8 @@ export default function Home() {
                       key={i}
                       className="flex justify-between border-b border-slate-100 py-2 last:border-0"
                     >
-                      <span>{tp.name}</span>
-                      <span className="font-mono text-slate-600">
+                      <span className="text-sm text-slate-700">{tp.name}</span>
+                      <span className="font-mono text-sm text-slate-500">
                         {tp.success_score.toFixed(1)}
                       </span>
                     </li>
