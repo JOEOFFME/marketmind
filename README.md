@@ -1,4 +1,3 @@
-cat > README.md << 'MARKDOWN'
 # MarketMind
 
 **Intelligent business-location analytics for Rabat, Morocco**
@@ -14,7 +13,7 @@ MarketMind predicts how successful a business — café, restaurant, pharmacy, b
 - **End-to-end ML system** — data collection → feature engineering → training → model registry → serving.
 - **Multi-agent AI (LangGraph)** — 4 agents: query understanding, data retrieval, ML analysis, insight generation.
 - **Trilingual** — French / English / Moroccan Darija (الدارجة).
-- **Champion model R² = 0.974** (XGBoost) on the success-score regression.
+- **Honest, leakage-free model** — XGBoost champion at **R² = 0.913 on real places** (verified free of target leakage and geographic memorization).
 - **Full MLOps** — MLflow tracking + model registry, Prometheus + Grafana monitoring, GitHub Actions CI, Dockerized stack, Terraform IaC.
 - **Web app** — Next.js frontend + FastAPI backend + Folium maps.
 
@@ -55,18 +54,21 @@ Answer + success score + interactive map
 
 ## Model performance
 
-Regression target: `success_score` (0–100), derived from Google ratings and review volume.
+Regression target: `success_score` (0–100) — the **Wilson score lower bound (95% CI)** of the Google rating, treating the rating as a satisfaction proportion and the review count as sample size. This is conservative: unproven places (few reviews) and confidently-bad places (many negative reviews) both score low, so review volume can't inflate a poor rating.
 
-| Model | R² |
+The model is trained on **real market features only** — every feature derived from the target (e.g. `success_score_pct`, `district_avg_score`, `type_avg_score`, `above_type_avg`, district means of rating/reviews) was removed to eliminate **data leakage**, along with raw GPS to prevent geographic memorization.
+
+| Metric | R² |
 |---|---|
-| **XGBoost** (champion) | **0.974** |
-| LightGBM | 0.972 |
-| Random Forest | 0.958 |
-| Ridge (baseline) | 0.917 |
+| **XGBoost** champion — combined test set | **0.904** |
+| ↳ on **real** places (honest) | **0.913** |
+| ↳ on **synthetic** places | 0.892 |
 
-**Dataset:** 2,145 rated places · 21,173 OpenStreetMap POIs · 68 engineered features (28 used for training).
+> Earlier iterations showed R² ≈ 0.97, but that was inflated by target leakage. After removing the leaking features the score is lower **and honest** — verified both by audit and empirically (dropping the suspect features did not reduce R²).
 
-**Key insight:** the strongest predictor of success is *competitive positioning within a business type* relative to district peers — more than raw proximity, density, or weather.
+**Dataset:** ~2,145 real Google-rated places + ~1,900 synthetic (simulated) places = ~4,045 rows, tagged with a `source` column so real and synthetic performance are reported separately. 24 market features used for training.
+
+**Key insight:** the strongest predictors of success are genuine market signals — **district income, foot traffic, competition density (`type_count_in_district`), and accessibility (distance to key amenities)** — not any target-derived or geographic shortcut.
 
 ---
 
@@ -87,7 +89,7 @@ Regression target: `success_score` (0–100), derived from Google ratings and re
 ## Project structure
 marketmind/
 ├── src/
-│   ├── collection/        # data collectors (OSM, weather, Google Places)
+│   ├── collection/        # data collectors (OSM, weather, Google Places) + synthetic generator + augment
 │   ├── features/          # feature engineering pipeline
 │   ├── models/            # training + model registry
 │   ├── agents/            # LangGraph agents (query, retrieval, analysis, insight, graph)
@@ -99,6 +101,7 @@ marketmind/
 ├── infrastructure/docker/ # docker-compose + Prometheus/Grafana config
 ├── terraform/             # Oracle Cloud IaC (deploy-ready)
 ├── tests/                 # pytest suite
+├── docs/                  # data & method notes, presentation guide
 └── data/processed/        # features.parquet
 
 ---
@@ -112,6 +115,7 @@ marketmind/
 - A free OpenRouter API key (for the AI agents)
 
 ### 1. Clone & configure
+
 ```bash
 git clone https://github.com/JOEOFFME/marketmind.git
 cd marketmind
@@ -119,24 +123,29 @@ cd marketmind
 ```
 
 ### 2. Start the stack
+
 ```bash
 docker compose -f infrastructure/docker/docker-compose.yml up -d
 poetry install
 ```
 
 ### 3. Train & register the model (if not already done)
+
 ```bash
-make features
-poetry run python src/models/train.py
-MLFLOW_TRACKING_URI=http://localhost:5000 poetry run python src/models/register_model.py
+make features        # build the real feature table from the DB
+# (optional) make augment   # add synthetic rows for a richer training set
+make train           # train, show leaderboard + R² by source
+make register        # promote the best model to @champion
 ```
 
 ### 4. Run the API
+
 ```bash
 poetry run uvicorn src.api.main:app --port 8001
 ```
 
 ### 5. Run the frontend
+
 ```bash
 cd frontend
 npm install
@@ -152,11 +161,13 @@ Open **http://localhost:3001**.
 ### REST API
 
 **`POST /ask`**
+
 ```bash
 curl -X POST http://localhost:8001/ask \
   -H "Content-Type: application/json" \
   -d '{"question":"Où ouvrir un café à Agdal ?"}'
 ```
+
 Returns the written recommendation plus structured data (parsed intent, district stats, model analysis).
 
 **`GET /map?district=Agdal&type=cafe`** — interactive Folium map of the matching places, colored by success score.
@@ -222,8 +233,8 @@ GOOGLE_PLACES_API_KEY=
 
 - [x] **Phase 0** — Project scaffold, CI, tooling
 - [x] **Phase 1** — Data collection (OSM, weather, Google Places) + Airflow
-- [x] **Phase 2** — Feature engineering (68 features)
-- [x] **Phase 3** — ML training + MLflow (XGBoost R² = 0.974)
+- [x] **Phase 2** — Feature engineering
+- [x] **Phase 3** — ML training + MLflow (leakage-free, real-place R² = 0.913)
 - [x] **Phase 4** — DevOps/MLOps: Docker, CI/CD, model registry, Prometheus + Grafana, Terraform
 - [x] **Phase 5** — LangGraph AI agents + `/ask` API
 - [x] **Serving** — FastAPI + Folium maps + Next.js frontend
@@ -232,5 +243,3 @@ GOOGLE_PLACES_API_KEY=
 ---
 
 *A full-stack ML + AI engineering project — data engineering, MLOps, multi-agent AI, and web serving end to end.*
-MARKDOWN
-echo "README.md créé"

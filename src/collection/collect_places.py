@@ -30,6 +30,10 @@ RABAT_DISTRICTS = [
     {"name": "L'Ocean", "lat": 34.0089, "lng": -6.8506},
     {"name": "Akkari", "lat": 34.0156, "lng": -6.8634},
     {"name": "Youssoufia", "lat": 33.9823, "lng": -6.8712},
+    {"name": "Yacoub El Mansour", "lat": 33.9920, "lng": -6.8650},
+    {"name": "Takaddoum", "lat": 33.9760, "lng": -6.8240},
+    {"name": "Aviation", "lat": 33.9890, "lng": -6.8360},
+    {"name": "Hay El Fath", "lat": 33.9930, "lng": -6.8580},
 ]
 
 PLACE_TYPES = [
@@ -39,7 +43,15 @@ PLACE_TYPES = [
     "pharmacy",
     "bank",
     "shopping_mall",
+    "bakery",
+    "clothing_store",
+    "electronics_store",
+    "beauty_salon",
+    "gym",
+    "hotel",
+    "movie_theater",
 ]
+
 
 
 def fetch_district(district: dict) -> list:
@@ -54,7 +66,7 @@ def fetch_district(district: dict) -> list:
                         "latitude": district["lat"],
                         "longitude": district["lng"],
                     },
-                    "radius": 800.0,
+                    "radius": 1200.0,
                 }
             },
         }
@@ -99,11 +111,29 @@ def compute_success_score(df: pd.DataFrame) -> pd.DataFrame:
     df["rating"] = pd.to_numeric(df["rating"], errors="coerce")
     df["rating"] = df["rating"].fillna(df["rating"].median())
 
-    df["log_reviews"] = np.log1p(df["review_count"])
-    df["rating_norm"] = (df["rating"] - 1) / 4
-    df["reviews_norm"] = df["log_reviews"] / df["log_reviews"].max()
+    # Success target = Wilson score lower bound (95% CI) of the rating.
+    # We treat the 1-5 rating as a "satisfaction proportion" p in [0, 1] and the
+    # review_count as the sample size n, then take the *lower* bound of the
+    # confidence interval. This is deliberately conservative: a 5-star place with
+    # 2 reviews stays low (unproven), while a bad rating backed by many reviews is
+    # confidently low (negative reviews ARE counted). No reviews -> no signal -> 0.
+    z = 1.96  # 95% confidence
+    n = df["review_count"]
+    p = ((df["rating"] - 1) / 4).clip(0, 1)  # normalized rating as a proportion
 
-    df["success_score"] = (0.4 * df["rating_norm"] + 0.6 * df["reviews_norm"]) * 100
+    with np.errstate(divide="ignore", invalid="ignore"):
+        center = p + z**2 / (2 * n)
+        margin = z * np.sqrt((p * (1 - p) + z**2 / (4 * n)) / n)
+        lower = (center - margin) / (1 + z**2 / n)
+
+    # n == 0 yields NaN above -> no reviews means no evidence -> score 0.
+    df["success_score"] = (np.maximum(lower.fillna(0), 0) * 100).round(2)
+
+    # Keep raw rating & volume as separate ML features so the model can still
+    # learn from both dimensions independently of the (clean) target.
+    df["log_reviews"] = np.log1p(df["review_count"])
+    df["rating_norm"] = p
+    df["reviews_norm"] = df["log_reviews"] / df["log_reviews"].max()
 
     return df
 
